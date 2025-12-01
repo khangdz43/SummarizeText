@@ -11,3 +11,4 @@ Làm hệ thống tóm tắt text
 27/11: Việt tìm hiểu chi tiết các thuật toán sẽ sử dụng trong project
 29/11 : Khang làm lại mô hình mới do mô hình cũ không đạt hiệu quả
 01/12 : Việt cập nhật một số cải tiến cho code mới
+02/12 :
