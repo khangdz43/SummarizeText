@@ -3,47 +3,105 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Flask Web Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SummarizeText Demo</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
-    <h1>Chào mừng bạn đến Flask Web!</h1>
+    <h1>Chào mừng bạn đến với SummarizeText!</h1>
 
-    <form action="/submit" method="POST" enctype="multipart/form-data">
+    <form id="summaryForm" method="POST" enctype="multipart/form-data">
+        <div>
+            <label>Hoặc dán text:</label>
+            <textarea name="contents" placeholder="Dán text cần tóm tắt vào đây" rows="10"></textarea>
+        </div>
 
-        <!-- Text cần tóm tắt -->
-        <label>Hoặc dán text:</label>
-        <textarea name="contents" placeholder="Dán text cần tóm tắt vào đây" rows="12"></textarea>
+        <div>
+            <label>Tỷ lệ tóm tắt (%):</label>
+            <select name="scale">
+                <option value="20">20%</option>
+                <option value="30" selected>30%</option>
+                <option value="40">40%</option>
+                <option value="50">50%</option>
+            </select>
+        </div>
 
-        <!-- Chọn tỷ lệ tóm tắt -->
-        <label>Tỷ lệ tóm tắt (%):</label>
-        <select name="scale">
-            <option value="20">20%</option>
-            <option value="30" selected>30%</option>
-            <option value="40">40%</option>
-            <option value="50">50%</option>
-        </select>
+        <div>
+            <label>Hoặc nhập URL bài báo:</label>
+            <input type="text" name="url" placeholder="https://...">
+        </div>
 
-        <!-- Input URL -->
-        <label>Hoặc nhập URL bài báo:</label>
-        <input type="text" name="url" placeholder="https://...">
-
-        <!-- Input file Word -->
-        <label>Hoặc tải file Word (.docx):</label>
-        <input type="file" name="file">
+        <div>
+            <label>Hoặc tải file Word (.docx):</label>
+            <input type="file" name="file" id="fileInput">
+        </div>
 
         <button type="submit">TÓM TẮT</button>
+
+        <div id="progressWrapper" style="display:none;">
+            <progress id="progressBar" value="0" max="100"></progress>
+            <span id="progressText">Đang tải...</span>
+        </div>
     </form>
 
-    <!-- Kết quả tóm tắt -->
-    <div class="result">
-        <h2>Kết quả tóm tắt:</h2>
-        {% if summary_result %}
-        <p>{{ summary_result }}</p>
-        {% endif %}
-    </div>
+    <div id="result"></div>
 
+    <script>
+        const form = document.getElementById("summaryForm");
+        const progressWrapper = document.getElementById("progressWrapper");
+        const progressBar = document.getElementById("progressBar");
+        const progressText = document.getElementById("progressText");
+        const resultDiv = document.getElementById("result");
+        const fileInput = document.getElementById("fileInput");
+
+        // Hiển thị thanh tiến trình khi người dùng chọn file
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length > 0) {
+                progressWrapper.style.display = "block";
+                progressBar.value = 0;
+                progressText.textContent = "File đã chọn,ấn tóm tắt để sẵn sàng tải lên...";
+            } else {
+                progressWrapper.style.display = "none";
+            }
+        });
+
+        // Xử lý submit
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+
+            progressWrapper.style.display = "block";
+            progressBar.value = 10;
+            progressText.textContent = "Đang tải lên...";
+
+            fetch("/submit_json", {  // Chú ý: route Flask mới
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                progressBar.value = 100;
+                progressText.textContent = "Hoàn thành!";
+                
+                // Chỉ hiện phần tóm tắt
+                if(data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h2>Kết quả tóm tắt:</h2>
+                            <p>${data.summary}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                }
+            })
+            .catch(err => {
+                progressText.textContent = "Lỗi khi tải lên!";
+                console.error(err);
+            });
+        });
+    </script>
 </body>
 
 </html>

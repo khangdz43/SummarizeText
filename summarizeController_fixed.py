@@ -8,20 +8,20 @@ from sklearn.preprocessing import normalize
 
 
 def get_data(file_path: str) -> str:
-    """Read and return text from a file path (UTF-8)."""
+   
     with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
 def get_stopwords(file_path_stopwords: str) -> set:
-    """Load stopwords from file (one token per line) and return a set."""
+   
     with open(file_path_stopwords, encoding="utf-8") as f:
         words = f.read().splitlines()
     return set([w.strip() for w in words if w.strip()])
 
 
 def clean_text(text: str) -> str:
-    """Basic normalization: lowercase, remove extra whitespace/newlines."""
+    
     if not isinstance(text, str):
         return ""
     text = text.lower()
@@ -30,26 +30,22 @@ def clean_text(text: str) -> str:
 
 
 def split_sentences(text: str) -> list:
-    """Split text into sentences using nltk (fallback)."""
+   
     if not text:
         return []
     return nltk.sent_tokenize(text)
 
 
 def load_w2v_model(path: str, binary: bool = False) -> KeyedVectors:
-    """Load KeyedVectors (word2vec format). Tries the given binary flag, else flips it as fallback."""
     try:
-        return KeyedVectors.load_word2vec_format(path, binary=binary)
+        return KeyedVectors.load(path)
     except Exception:
         # try opposite mode
-        return KeyedVectors.load_word2vec_format(path, binary=not binary)
+        return KeyedVectors.load(path, binary=not binary)
 
 
 def sentences_to_vectors(sentences: list, w2v: KeyedVectors, stopwords: set) -> np.ndarray:
-    """Convert list of sentence strings to an (n_sentences, vector_size) numpy array.
-
-    Each sentence is tokenized with ViTokenizer and averaged over in-vocab word vectors.
-    """
+  
     if not sentences:
         return np.empty((0, w2v.vector_size), dtype=np.float32)
 
@@ -67,11 +63,7 @@ def sentences_to_vectors(sentences: list, w2v: KeyedVectors, stopwords: set) -> 
 
 
 def cluster_sentence_vectors(X: np.ndarray, n_clusters: int = None, ratio: float = 0.3, random_state: int = 42, normalize_vectors: bool = True) -> KMeans:
-    """Cluster sentence vectors with KMeans.
-
-    If n_clusters is not provided, it uses ratio * n_sentences (min 1, max n_sentences).
-    Returns fitted KMeans or None if X is empty.
-    """
+  
     n_sent = X.shape[0]
     if n_sent == 0:
         return None
@@ -89,10 +81,7 @@ def cluster_sentence_vectors(X: np.ndarray, n_clusters: int = None, ratio: float
 
 
 def build_summary(kmeans: KMeans, sent_vecs: np.ndarray, sentences: list) -> str:
-    """Pick a representative sentence closest to each cluster center and return joined summary.
 
-    Sentences are returned in original document order (sorted by index).
-    """
     if kmeans is None or sent_vecs.size == 0:
         return ""
 
@@ -121,7 +110,7 @@ def build_summary(kmeans: KMeans, sent_vecs: np.ndarray, sentences: list) -> str
     return " ".join(summary_sents)
 
 
-def summarize_text(contents: str, w2v_path: str = 'vi.vec', stopwords_path: str = 'MODEL/vietnamese-stopwords.txt', num_sentences: int = 3) -> str:
+def summarize_text(contents: str, w2v_path: str = 'wiki.vi.kv', stopwords_path: str = 'vietnamese-stopwords.txt', num_sentences: int = 3) -> str:
     """High-level pipeline: clean -> tokenize -> compute vectors -> cluster -> pick summary.
 
     This is a convenience wrapper you can call directly.
@@ -141,3 +130,31 @@ def summarize_text(contents: str, w2v_path: str = 'vi.vec', stopwords_path: str 
 
     kmeans = cluster_sentence_vectors(sent_vecs, n_clusters=min(num_sentences, sent_vecs.shape[0]), normalize_vectors=True)
     return build_summary(kmeans, sent_vecs, sentences)
+if __name__ == "__main__":
+    # Ví dụ văn bản tiếng Việt
+    text = """
+
+Biến đổi khí hậu toàn cầu đang là thách thức lớn nhất mà nhân loại phải đối mặt trong thế kỷ 21, với những tác động ngày càng rõ rệt và nghiêm trọng. Nguyên nhân chủ yếu được xác định là do sự gia tăng nồng độ khí nhà kính, đặc biệt là CO2, phát thải từ các hoạt động công nghiệp, giao thông vận tải và nông nghiệp thâm canh. Những hậu quả nhãn tiền bao gồm nhiệt độ trung bình Trái Đất tăng lên, mực nước biển dâng do băng tan ở các cực và đỉnh núi, cùng với sự gia tăng tần suất và cường độ của các hiện tượng thời tiết cực đoan như bão lũ, hạn hán và cháy rừng.
+Trước tình hình cấp bách này, việc chuyển dịch từ năng lượng hóa thạch sang năng lượng tái tạo không chỉ là một xu hướng mà là một yêu cầu bắt buộc để đảm bảo sự phát triển bền vững. Năng lượng mặt trời và năng lượng gió đang nổi lên như hai trụ cột chính của quá trình chuyển đổi này. Công nghệ pin mặt trời (photovoltaic) đã đạt được những bước tiến đáng kể trong hiệu suất và giảm chi phí sản xuất, khiến điện mặt trời trở thành một lựa chọn kinh tế cho cả quy mô hộ gia đình và các trang trại điện lớn. Tương tự, các tuabin gió ngày càng lớn hơn và hiệu quả hơn, có thể khai thác sức gió ở cả trên đất liền và ngoài khơi (offshore wind farms).
+Tuy nhiên, việc tích hợp năng lượng tái tạo vào lưới điện quốc gia vẫn gặp phải nhiều rào cản kỹ thuật. Tính không ổn định và phụ thuộc vào thời tiết của năng lượng gió và mặt trời đặt ra thách thức lớn về khả năng lưu trữ điện năng. Các giải pháp lưu trữ tiên tiến, như công nghệ pin lithium-ion dung lượng cao hoặc hệ thống thủy điện tích năng, đang được nghiên cứu và phát triển mạnh mẽ để giải quyết bài toán này. Hơn nữa, sự hợp tác quốc tế, các chính sách hỗ trợ từ chính phủ (ví dụ như thuế carbon hoặc trợ cấp cho năng lượng xanh) đóng vai trò then chốt trong việc thúc đẩy đầu tư và mở rộng quy mô năng lượng sạch trên toàn cầu.
+Việc giải quyết khủng hoảng khí hậu đòi hỏi nỗ lực tổng hợp từ mọi quốc gia, ngành công nghiệp và cá nhân. Mặc dù con đường phía trước còn nhiều chông gai, nhưng sự đổi mới công nghệ và cam kết chính trị mạnh mẽ đang mở ra hy vọng về một tương lai năng lượng sạch hơn, bền vững hơn cho các thế hệ mai sau.
+
+    """
+
+    # Đường dẫn tới model đã lưu (.kv) và file stopwords
+    w2v_model_path = "wiki.vi.kv"  # model KeyedVectors đã save
+    stopwords_path = "vietnamese-stopwords.txt"
+
+    # Số câu tóm tắt muốn lấy
+    num_summary_sentences = 2
+
+    # Chạy tóm tắt
+    summary = summarize_text(
+        contents=text,
+        w2v_path=w2v_model_path,
+        stopwords_path=stopwords_path,
+        num_sentences=num_summary_sentences
+    )
+
+    print("----- TÓM TẮT -----")
+    print(summary)
