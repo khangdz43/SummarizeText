@@ -1,20 +1,19 @@
-import nltk
-import numpy as np
+import nltk #nltk.sent_tokenize tách câu
+import numpy as np # toán tử ma trận vecto hoặc mảng
 from sklearn.cluster import KMeans
-from sklearn.metrics import pairwise_distances_argmin_min
-from gensim.models import KeyedVectors
-from pyvi import ViTokenizer
+from sklearn.metrics import pairwise_distances_argmin_min # chọn câu đại diện vì nó trả về chỉ số diểm
+from gensim.models import KeyedVectors # load thằng từ điển
+from pyvi import ViTokenizer # tokenize cho tiếng việt ghép dấu gạch dưới
 
-# Đọc dữ liệu
-def getData(filePath):
-    with open(filePath, encoding='utf-8') as file:
-        return file.read()
+# # Đọc dữ liệu
+# def getData(filePath):
+#     with open(filePath, encoding='utf-8') as file:
+#         return file.read()
 
 # lấy stopWord trong file
 def getStopWords(filePathStopWords):
     with open(filePathStopWords, encoding='utf-8') as file:
         stopWords = file.read().split('\n')
-    # loại bỏ khoảng trắng thừa
     stopWords = [sw.strip() for sw in stopWords if sw.strip()]
     return stopWords
 
@@ -26,7 +25,7 @@ def preProcessing(contents):
     contents = contents.strip()
     return contents
 
-# tách thành câu 
+# tách thành câu trả về danh sách câu
 def devision(sentences):
     return nltk.sent_tokenize(sentences)
 
@@ -37,9 +36,10 @@ def sentencesVector(sentences, stopWords):
     # w2v = KeyedVectors.load_word2vec_format("wiki.vi.vec", binary=False)
     # w2v.save("wiki.vi.kv")
     w2v = KeyedVectors.load("wiki.vi.kv")
-    vocab = w2v.key_to_index # lấy tập từ vựng trong từ điển
+    vocab = w2v.key_to_index # trả ra dic các từ trong vocab
     dim = w2v.vector_size # kích thước vector của từ
     # print(f"Kích thước từ vựng: {len(vocab)} - Kích thước vector: {dim}")
+
     X = []
     # từng câu trong đoạn
     for sent in sentences:
@@ -49,44 +49,78 @@ def sentencesVector(sentences, stopWords):
         # print("==========" + sent)
         words = sent.split(" ")
 
-        # tính vector câu CHƯA HIỂU ĐOẠN NÀY
+        # khởi tạo vector 0
         sent_vector = np.zeros(dim)
-       
+      
 
         num_words = 0
         for word in words:
             # kiểm tra stopword
             if word in vocab and word not in stopWords:
+                # cộng dồn vector của từ vào vector câu
                 sent_vector += w2v[word]
+                # print("==========" + str(w2v[word]))
+                
                 num_words += 1
+        # lặp song các từ trong câu rồi
+        # tính trung bình vector câu
         if num_words > 0:
+            # Nếu không chia: câu dài có vector lớn → không công bằng
+
+            # Chia trung bình → vector của câu không phụ thuộc độ dài 
             sent_vector = sent_vector / num_words
+            # [
+#    vector_câu_1,
+#    vector_câu_2,
+#    vector_câu_3,
+#    ...
+# ]
         X.append(sent_vector)
+
+        # Kết quả là mảng (số_câu × dim)
+    # print(np.array(X).shape)
     return np.array(X)
 
 
 # Phân cụm KMeans
 def sentencesCluster(X,scale):
+    # len(X) = số câu , scale = tỉ lệ % câu muốn giữ lại
+    # Mỗi cụm sẽ đóng góp 1 câu vào bản tóm tắt.
     n_clusters = max(1, len(X) * scale // 100)  # ít nhất 1 cluster
+    # chạy 10 lần với khởi tạo khác nhau , chọn kết quả tốt nhất 
     kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
+    # tìm cụm từng câu và gán nhãn
     kmeans.fit(X)
-    return kmeans
+    
+    return kmeans , n_clusters
 
 
 # Tạo summary
-def buildSummary(kmeans, X, sentences, scale):
-    n_clusters = max(1, len(X) * scale // 100)
-    # Lấy câu gần tâm cụm
+def buildSummary(n_clusters, kmeans, X, sentences):
+    # Lấy câu gần tâm cụm, chọn câu đại diện mỗi cụm
+    # [3, 10, 15]
+# Cụm 0 đại diện bởi câu số 3
+
+# Cụm 1 đại diện bởi câu số 10
+
+# Cụm 2 đại diện bởi câu số 15
     closest, _ = pairwise_distances_argmin_min(kmeans.cluster_centers_, X)
+    # print("=====đại dienj các cụm:", closest)
+
 
     # Tính vị trí trung bình câu trong từng cluster
     avg = []
     for i in range(n_clusters):
+        # lấy chỉ số các câu thuộc cluster i.
         idx = np.where(kmeans.labels_ == i)[0]
+        # print("Cụm", i, "câu:", idx)
+        # tính vị trí trung bình , dùng để sắp xếp câu sau này
         avg.append(np.mean(idx))
 
     # Sắp xếp cụm theo vị trí câu
     ordering = sorted(range(n_clusters), key=lambda k: avg[k])
+    # print("=====vị trí trung bình các cụm:", avg)
+    # print("=====thứ tự các cụm theo vị trí:", ordering)
 
     # Ghép câu tạo summary
     summary = ' '.join([sentences[closest[idx]] for idx in ordering])
@@ -99,8 +133,8 @@ def summarization(contents,scale):
     contents = preProcessing(contents)
     sentences = devision(contents)
     X = sentencesVector(sentences, stop_words)
-    kmeans = sentencesCluster(X, scale)
-    summary = buildSummary(kmeans, X, sentences , scale)
+    kmeans , n_clusters = sentencesCluster(X, scale)
+    summary = buildSummary(n_clusters , kmeans, X, sentences )
     return summary
 
 
